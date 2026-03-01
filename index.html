@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <title>Супермаркет - 3D Рафтове и Звук</title>
+    <style>
+        :root {
+            --receipt-bg: #fdfbf7; --primary: #0277bd;
+            --drawer-bg: #2c3e50; --drawer-border: #1a252f;
+        }
+
+        body {
+            margin: 0; padding: 0; height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: radial-gradient(circle, #78909c 0%, #37474f 100%);
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }
+
+        /* --- НАЧАЛЕН ЕКРАН И ПАНЕЛ --- */
+        #start-screen {
+            position: fixed; inset: 0; background: radial-gradient(circle, #0277bd 0%, #01579b 100%);
+            z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+        }
+        .start-title { font-size: 60px; font-weight: 900; margin-bottom: 40px; text-shadow: 2px 4px 10px rgba(0,0,0,0.3); text-align: center;}
+        .btn-main { background: #ffca28; color: #333; border: none; padding: 15px 40px; font-size: 22px; font-weight: bold; border-radius: 50px; cursor: pointer; margin: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); transition: 0.2s;}
+        .btn-main:hover { transform: translateY(-3px); background: #ffecb3;}
+        .btn-teacher { background: #fff; color: #0277bd; }
+        .author-badge { margin-top: 40px; font-size: 22px; font-weight: bold; background: rgba(255,255,255,0.15); padding: 12px 25px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.3); box-shadow: 0 4px 10px rgba(0,0,0,0.2);}
+
+        #teacher-overlay {
+            position: fixed; inset: 0; background: #f5f5f5; z-index: 6000; display: none; flex-direction: column; color: #333;
+        }
+        .teacher-header { background: #0277bd; color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .teacher-content { flex: 1; overflow-y: auto; padding: 30px; display: flex; gap: 30px; }
+        .t-column { flex: 1; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .t-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px;}
+        .t-row input { padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        .t-row .name-input { flex: 2; }
+        .t-row .price-input { flex: 1; text-align: right; }
+        .save-btn, .cancel-btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; color: white;}
+        .save-btn { background: #2e7d32; } .cancel-btn { background: #c62828; margin-right: 10px; }
+
+        /* --- ИГРАЛНО ПОЛЕ --- */
+        #game-board {
+            width: 98vw; height: 96vh; max-width: 1600px; background: #fff; border-radius: 15px;
+            display: none; box-shadow: 0 15px 50px rgba(0,0,0,0.5); overflow: hidden; position: relative;
+        }
+
+        #left-panel { width: 30%; background: #eceff1; padding: 20px; display: flex; flex-direction: column; align-items: center; border-right: 5px solid #cfd8dc; z-index: 10; box-sizing: border-box;}
+        .post-it { background: #fff59d; width: 95%; padding: 15px; font-family: 'Comic Sans MS', cursive, sans-serif; font-size: 22px; color: #333; box-shadow: 3px 5px 15px rgba(0,0,0,0.2); transform: rotate(-2deg); margin-bottom: 20px; box-sizing: border-box;}
+        .list-item { margin: 8px 0; display: flex; align-items: center; gap: 10px; transition: 0.3s;}
+        .list-item.done { text-decoration: line-through; color: #999; opacity: 0.7;}
+
+        .receipt-paper { background: var(--receipt-bg); width: 95%; flex: 1; font-family: 'Courier New', Courier, monospace; font-size: 22px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow-y: auto; box-sizing: border-box;}
+        .receipt-header { text-align: center; border-bottom: 2px dashed #777; padding-bottom: 10px; margin-bottom: 15px; font-weight:bold; }
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold;}
+        
+        #calc-section { margin-top: auto; border-top: 2px dashed #777; padding-top: 15px; display: none; }
+        .calc-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 5px; margin-top: 10px; }
+        .digit-box { width: 35px; height: 45px; font-size: 28px; text-align: center; font-weight: bold; border: 2px solid #555; border-radius: 5px; background: #fff; font-family: 'Courier New', Courier, monospace;}
+        .euro-box { width: 65px; text-align: right; padding-right: 5px;}
+        #final-total-section { display: none; margin-top: auto; border-top: 2px dashed #777; padding-top: 15px; text-align: right; font-size: 26px; font-weight: bold;}
+
+        #right-panel { flex: 1; background: #fafafa; display: flex; flex-direction: column; position: relative; overflow: hidden;}
+
+        /* --- СУПЕРМАРКЕТ РАФТОВЕ (3D Дизайн - Без надписи) --- */
+        #shop-view { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; padding: 40px 20px 80px 20px; background: linear-gradient(to bottom, #eceff1, #cfd8dc); overflow-y: auto;}
+        
+        .shelf-wrapper { position: relative; margin-bottom: 50px; display: flex; flex-direction: column; align-items: center;}
+        
+        /* 3D Основа на рафта */
+        .shelf-3d-base {
+            position: absolute; bottom: -20px; left: 2%; width: 96%; height: 25px;
+            background: linear-gradient(to bottom, #f5f5f5, #bdbdbd);
+            border-bottom: 10px solid #9e9e9e;
+            border-radius: 3px; z-index: 1;
+            box-shadow: 0 20px 20px rgba(0,0,0,0.3);
+            display: flex; align-items: flex-end; justify-content: center;
+        }
+        .price-strip { width: 100%; height: 8px; background: #d32f2f; margin-bottom: 2px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+        
+        .shelf-items-grid { display: flex; justify-content: space-around; width: 95%; align-items: flex-end; z-index: 2; position: relative;}
+        
+        /* Продукти на рафта */
+        .product-group { position: relative; width: 120px; height: 140px; cursor: pointer; display: flex; justify-content: center; align-items: flex-end; transition: transform 0.2s; margin: 0 10px;}
+        .product-group:hover { transform: scale(1.15); z-index: 10;}
+        
+        .shelf-item { position: absolute; width: 110px; height: 110px; object-fit: contain; filter: drop-shadow(4px 6px 10px rgba(0,0,0,0.4)); transition: 0.4s ease-out;}
+        .shelf-item:nth-child(1) { bottom: 10px; left: -10px; z-index: 1; filter: brightness(0.7) drop-shadow(4px 6px 10px rgba(0,0,0,0.5)); }
+        .shelf-item:nth-child(2) { bottom: 0px; left: 5px; z-index: 2; }
+        
+        .price-tag { background: #fff; border: 2px solid #333; color: #000; font-weight: 900; font-size: 18px; padding: 2px 8px; border-radius: 3px; position: absolute; bottom: -45px; left: 50%; transform: translateX(-50%); box-shadow: 0 4px 6px rgba(0,0,0,0.3); white-space: nowrap; z-index: 10;}
+
+        /* Анимация за точно "падане" в количката */
+        .flying { position: fixed; z-index: 9999; transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1); pointer-events: none; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));}
+
+        /* КОЛИЧКА */
+        #cart-icon { position: absolute; bottom: 10px; left: 30px; font-size: 100px; filter: drop-shadow(0 8px 15px rgba(0,0,0,0.3)); z-index: 100; transition: 0.2s;}
+        
+        /* --- КАСА И ЧЕКМЕДЖЕ С ПАРИ --- */
+        #money-view { display: none; flex-direction: column; height: 100%; background: #e0e0e0; position: relative; }
+        
+        .register-screen { background: #111; color: #39ff14; font-family: 'Courier New', Courier, monospace; padding: 20px; text-align: center; font-size: 32px; font-weight: bold; border-bottom: 15px solid #333; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+        
+        .drawer-container { flex: 1; overflow: hidden; position: relative; padding: 20px; display: flex; justify-content: center; align-items: flex-start;}
+        
+        .cash-drawer { 
+            background: var(--drawer-bg); border: 10px solid var(--drawer-border); border-radius: 5px; 
+            width: 95%; max-width: 1000px; padding: 20px; box-shadow: inset 0 10px 40px rgba(0,0,0,0.6), 0 30px 40px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; gap: 20px;
+            transform: translateY(-100%); opacity: 0; transition: transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+        }
+        .cash-drawer.open { transform: translateY(0); opacity: 1; }
+
+        .drawer-section { display: flex; gap: 12px; background: #1a252f; padding: 15px; border-radius: 8px; border: 3px solid #000; box-shadow: inset 0 5px 20px rgba(0,0,0,0.8);}
+        .compartment { flex: 1; background: #34495e; border: 2px solid #111; border-radius: 5px; min-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: inset 0 0 15px rgba(0,0,0,0.6);}
+        .compartment:hover { background: #455a64; }
+        
+        .money-item-container { cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; justify-content: center;}
+        .money-item-container:hover { transform: scale(1.15); z-index: 10;}
+        .money-img { object-fit: contain; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.6)); }
+        .note-img { width: 95%; max-width: 150px; height: auto; }
+        .coin-img { width: 70px; height: 70px; border-radius: 50%; }
+        
+        .comp-label { position: absolute; top: 5px; left: 8px; color: rgba(255,255,255,0.3); font-size: 14px; font-weight: bold; pointer-events: none;}
+
+        .action-bar { background: #fff; border-top: 5px solid #ccc; padding: 20px; text-align: center; z-index: 10; display: flex; flex-direction: column; align-items: center; box-shadow: 0 -10px 20px rgba(0,0,0,0.1);}
+        .btn-action { background: #2e7d32; color: white; border: none; padding: 15px 40px; border-radius: 10px; font-size: 24px; font-weight: bold; cursor: pointer; margin: 5px;}
+        .btn-clear { background: #e53935; }
+    </style>
+</head>
+<body>
+
+<audio id="snd-beep" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+<audio id="snd-cash" src="https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3" preload="auto"></audio>
+
+<div id="start-screen">
+    <div class="start-title">🛒 СУПЕРМАРКЕТ "ЗНАЙКО"</div>
+    <div style="display:flex; gap: 20px;">
+        <button class="btn-main btn-teacher" onclick="openTeacherPanel()">⚙️ УЧИТЕЛСКИ ПАНЕЛ</button>
+        <button class="btn-main" onclick="startGame()">🚀 СТАРТ НА ИГРАТА</button>
+    </div>
+    <div class="author-badge">🌟 Автор: Дочка Кючукова</div>
+</div>
+
+<div id="teacher-overlay">
+    <div class="teacher-header">
+        <h2 style="margin: 0;">⚙️ НАСТРОЙКИ</h2>
+        <div>
+            <button class="cancel-btn" onclick="closeTeacherPanel()">ОТКАЗ</button>
+            <button class="save-btn" onclick="saveTeacherPanel()">💾 ЗАПАЗИ</button>
+        </div>
+    </div>
+    <div class="teacher-content">
+        <div class="t-column"><h3 style="margin-top:0; color:#0277bd;">🍎 ПРОДУКТИ</h3><div id="products-settings"></div></div>
+        <div class="t-column"><h3 style="margin-top:0; color:#0277bd;">💶 ПАРИ</h3><div id="money-settings"></div></div>
+    </div>
+</div>
+
+<div id="game-board">
+    <div id="left-panel">
+        <div class="post-it">
+            <h3 style="margin:0 0 10px 0;">📝 Списък:</h3>
+            <div id="shopping-list-ui"></div>
+        </div>
+        <div class="receipt-paper">
+            <div class="receipt-header">СУПЕРМАРКЕТ<br>Касов бон</div>
+            <div id="receipt-items"></div>
+            
+            <div id="calc-section">
+                <div style="text-align: right; color:#555; font-size:16px;">Пресметни сумата:</div>
+                <div class="calc-wrapper">
+                    <span style="font-weight:bold; margin-right:auto;">ОБЩО:</span>
+                    <input type="text" inputmode="numeric" id="calc-euro" class="digit-box euro-box">
+                    <span style="font-size: 28px; font-weight: bold;">.</span>
+                    <input type="text" inputmode="numeric" id="calc-ten" class="digit-box" maxlength="1">
+                    <input type="text" inputmode="numeric" id="calc-unit" class="digit-box" maxlength="1">
+                    <span style="font-weight:bold; font-size: 24px;">€</span>
+                </div>
+                <button class="btn-action" style="width:100%; font-size:20px; padding:15px; margin-top:15px;" onclick="checkMath()">ПРОВЕРИ СМЕТКАТА</button>
+                <div id="calc-error" style="color:red; font-size:18px; display:none; margin-top:5px; text-align:center; font-weight:bold;">Грешка! Провери събирането.</div>
+            </div>
+            <div id="final-total-section">ОБЩО: <span id="final-total-val">0.00</span> €</div>
+        </div>
+    </div>
+
+    <div id="right-panel">
+        <div id="cart-icon">🛒</div>
+        
+        <div id="shop-view">
+            <div class="shelf-wrapper">
+                <div class="shelf-items-grid" id="shelf-1"></div>
+                <div class="shelf-3d-base"><div class="price-strip"></div></div>
+            </div>
+            <div class="shelf-wrapper">
+                <div class="shelf-items-grid" id="shelf-2"></div>
+                <div class="shelf-3d-base"><div class="price-strip"></div></div>
+            </div>
+            <div class="shelf-wrapper">
+                <div class="shelf-items-grid" id="shelf-3"></div>
+                <div class="shelf-3d-base"><div class="price-strip"></div></div>
+            </div>
+        </div>
+
+        <div id="money-view">
+            <div id="money-content" style="display:flex; flex-direction:column; height:100%;">
+                <div class="register-screen" id="reg-screen">МОЛЯ ПЛАТЕТЕ: 0.00 €</div>
+                
+                <div class="drawer-container">
+                    <div class="cash-drawer" id="cash-drawer">
+                        <div class="drawer-section" id="notes-compartments"></div>
+                        <div class="drawer-section" id="coins-compartments" style="flex-wrap: wrap;"></div>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <div style="font-size:22px; color:#555; font-weight:bold;" id="action-label">Въведена сума:</div>
+                    <div style="font-size:48px; font-weight:900; color:#2e7d32; margin:5px 0;" id="current-money-sum">0.00 €</div>
+                    <div style="display:flex; gap:15px;">
+                        <button class="btn-action btn-clear" onclick="clearMoney()">ИЗЧИСТИ</button>
+                        <button class="btn-action" onclick="submitMoney()">ПЛАТИ / РЕСТО</button>
+                    </div>
+                    <div id="money-error" style="color:red; font-weight:bold; font-size:20px; margin-top:10px; display:none;"></div>
+                </div>
+            </div>
+
+            <div id="success-screen" style="display:none; text-align:center; padding-top:80px;">
+                </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let myCatalog = [], myMoney = [];
+    let shoppingList = [], cart = [], totalCents = 0, phase = 'shop', currentInputCents = 0, paidCents = 0;
+
+    function playSound(id) { document.getElementById(id).currentTime = 0; document.getElementById(id).play().catch(()=>{}); }
+
+    function generateDefaultData() {
+        let defCat = []; for(let i=101; i<=124; i++) defCat.push({ id: i, name: `Продукт ${i}`, price: 100 });
+        let defMon = []; const defaults = [200, 100, 50, 20, 10, 5, 2, 1, 0.50, 0.20, 0.10, 0.05, 0.02, 0.01];
+        for(let i=1; i<=14; i++) defMon.push({ id: i, val: Math.round(defaults[i-1] * 100), type: i <= 6 ? 'note' : 'coin' });
+        return { catalog: defCat, money: defMon };
+    }
+
+    function loadData() {
+        const saved = localStorage.getItem('SupermarketData');
+        if(saved) { const d = JSON.parse(saved); myCatalog = d.catalog; myMoney = d.money; } 
+        else { const d = generateDefaultData(); myCatalog = d.catalog; myMoney = d.money; }
+    }
+
+    // Учителски панел
+    function openTeacherPanel() {
+        loadData(); document.getElementById('teacher-overlay').style.display = 'flex';
+        const pC = document.getElementById('products-settings'), mC = document.getElementById('money-settings');
+        pC.innerHTML = ''; mC.innerHTML = '';
+        myCatalog.forEach(p => pC.innerHTML += `<div class="t-row"><b style="width:60px;">${p.id}.png</b><input type="text" class="name-input" id="p-name-${p.id}" value="${p.name.replace(/"/g, '&quot;')}"><input type="number" class="price-input" id="p-price-${p.id}" value="${(p.price/100).toFixed(2)}" step="0.01"></div>`);
+        myMoney.forEach(m => mC.innerHTML += `<div class="t-row"><b style="width:60px;">${m.id}.png</b><input type="number" class="price-input" id="m-val-${m.id}" value="${(m.val/100).toFixed(2)}" step="0.01"><select id="m-type-${m.id}" style="padding:8px;"><option value="note" ${m.type==='note'?'selected':''}>Банкнота</option><option value="coin" ${m.type==='coin'?'selected':''}>Монета</option></select></div>`);
+    }
+    function closeTeacherPanel() { document.getElementById('teacher-overlay').style.display = 'none'; }
+    function saveTeacherPanel() {
+        myCatalog.forEach(p => { p.name = document.getElementById(`p-name-${p.id}`).value || `Продукт ${p.id}`; p.price = Math.round((parseFloat(document.getElementById(`p-price-${p.id}`).value) || 0) * 100); });
+        myMoney.forEach(m => { m.val = Math.round((parseFloat(document.getElementById(`m-val-${m.id}`).value) || 0) * 100); m.type = document.getElementById(`m-type-${m.id}`).value; });
+        localStorage.setItem('SupermarketData', JSON.stringify({catalog: myCatalog, money: myMoney})); closeTeacherPanel(); alert("Запазено!");
+    }
+
+    function formatMoney(cents) { return (cents / 100).toFixed(2); }
+
+    const u = document.getElementById('calc-unit'), t = document.getElementById('calc-ten'), e = document.getElementById('calc-euro');
+    u.addEventListener('input', function() { this.value = this.value.replace(/[^0-9]/g, '').slice(-1); if(this.value !== '') t.focus(); });
+    t.addEventListener('input', function() { this.value = this.value.replace(/[^0-9]/g, '').slice(-1); if(this.value !== '') e.focus(); });
+    e.addEventListener('input', function() { this.value = this.value.replace(/[^0-9]/g, '').slice(-2); });
+
+    function startGame() {
+        loadData(); document.getElementById('start-screen').style.display = 'none'; document.getElementById('game-board').style.display = 'flex';
+        setupStore();
+    }
+
+    function setupStore() {
+        cart = []; shoppingList = []; totalCents = 0; phase = 'shop'; currentInputCents = 0; paidCents = 0;
+        
+        document.getElementById('shopping-list-ui').innerHTML = '';
+        document.getElementById('receipt-items').innerHTML = '';
+        u.value = ''; t.value = ''; e.value = '';
+        document.getElementById('calc-section').style.display = 'none';
+        document.getElementById('final-total-section').style.display = 'none';
+        
+        document.getElementById('money-view').style.display = 'none';
+        document.getElementById('success-screen').style.display = 'none';
+        document.getElementById('money-content').style.display = 'flex';
+        
+        document.getElementById('shop-view').style.display = 'flex';
+        document.getElementById('cart-icon').style.display = 'block';
+        
+        const shelves = [document.getElementById('shelf-1'), document.getElementById('shelf-2'), document.getElementById('shelf-3')];
+        shelves.forEach(s => s.innerHTML = '');
+
+        let shuffled = [...myCatalog].sort(() => 0.5 - Math.random()).slice(0, 18);
+        shoppingList = [...shuffled].sort(() => 0.5 - Math.random()).slice(0, 3);
+        
+        shoppingList.forEach(item => document.getElementById('shopping-list-ui').innerHTML += `<div class="list-item" id="list-${item.id}">▫️ ${item.name}</div>`);
+
+        shuffled.forEach((item, index) => {
+            let html = `
+                <div class="product-group" onclick="pickItem(${item.id}, this)">
+                    <img src="${item.id}.png" class="shelf-item" id="img1-${item.id}">
+                    <img src="${item.id}.png" class="shelf-item" id="img2-${item.id}">
+                    <div class="price-tag">${formatMoney(item.price)} €</div>
+                </div>
+            `;
+            shelves[Math.floor(index / 6)].innerHTML += html;
+        });
+    }
+
+    function pickItem(id, el) {
+        if(phase !== 'shop') return;
+        if(!shoppingList.some(i => i.id === id)) { alert("Това не е в списъка!"); return; }
+        if(cart.some(i => i.id === id)) return; 
+
+        playSound('snd-beep'); 
+        const item = myCatalog.find(i => i.id === id);
+        cart.push(item); totalCents += item.price;
+        
+        const img = document.getElementById(`img2-${id}`);
+        const rect = img.getBoundingClientRect();
+        const clone = img.cloneNode();
+        clone.className = 'flying';
+        
+        clone.style.left = rect.left + 'px'; 
+        clone.style.top = rect.top + 'px';
+        clone.style.width = rect.width + 'px';
+        clone.style.height = rect.height + 'px';
+        document.body.appendChild(clone);
+        
+        const cartIcon = document.getElementById('cart-icon');
+        const cartRect = cartIcon.getBoundingClientRect();
+        
+        const targetX = cartRect.left + (cartRect.width / 2) - (rect.width / 2);
+        const targetY = cartRect.top + (cartRect.height / 2) - (rect.height / 2);
+
+        cartIcon.style.transform = "scale(1.2)";
+        setTimeout(() => cartIcon.style.transform = "scale(1)", 200);
+
+        setTimeout(() => {
+            clone.style.left = targetX + 'px';
+            clone.style.top = targetY + 'px';
+            clone.style.transform = "scale(0.1) rotate(360deg)"; 
+            clone.style.opacity = "0";
+            setTimeout(() => clone.remove(), 500);
+        }, 20);
+
+        img.style.opacity = '0';
+        document.getElementById(`list-${id}`).classList.add('done');
+
+        let formattedPrice = formatMoney(item.price).padStart(5, ' ');
+        document.getElementById('receipt-items').innerHTML += `<div class="receipt-row"><span>${item.name}</span><span style="white-space: pre;">${formattedPrice} €</span></div>`;
+
+        if(cart.length === shoppingList.length) {
+            document.getElementById('calc-section').style.display = 'block';
+            setTimeout(() => u.focus(), 100);
+        }
+    }
+
+    function checkMath() {
+        const inputCents = ((parseInt(e.value) || 0) * 100) + ((parseInt(t.value) || 0) * 10) + (parseInt(u.value) || 0);
+        if(inputCents === totalCents) {
+            document.getElementById('calc-error').style.display = 'none'; document.getElementById('calc-section').style.display = 'none';
+            document.getElementById('final-total-section').style.display = 'block'; document.getElementById('final-total-val').innerText = formatMoney(totalCents);
+            startPaymentSelection();
+        } else document.getElementById('calc-error').style.display = 'block';
+    }
+
+    function generateCompartment(m) {
+        const isNote = m.type === 'note';
+        return `
+            <div class="compartment" style="flex: ${isNote ? '1' : '0 0 100px'};">
+                <div class="comp-label">${formatMoney(m.val)}</div>
+                <div class="money-item-container" onclick="addMoney(${m.val})">
+                    <img src="${m.id}.png" class="money-img ${isNote ? 'note-img' : 'coin-img'}">
+                </div>
+            </div>
+        `;
+    }
+
+    function startPaymentSelection() {
+        playSound('snd-cash'); // Пускаме звука ВЕДНАГА при клик
+        
+        phase = 'choose_payment';
+        document.getElementById('shop-view').style.display = 'none';
+        document.getElementById('cart-icon').style.display = 'none';
+        document.getElementById('money-view').style.display = 'flex';
+        document.getElementById('reg-screen').innerText = `СМЕТКА ЗА ПЛАЩАНЕ: ${formatMoney(totalCents)} €`;
+        document.getElementById('action-label').innerText = "Избери едра банкнота за плащане:";
+        
+        const notesArea = document.getElementById('notes-compartments'), coinsArea = document.getElementById('coins-compartments');
+        notesArea.innerHTML = ''; coinsArea.innerHTML = ''; 
+
+        let sorted = [...myMoney].sort((a,b) => b.val - a.val);
+        let allowed = sorted.filter(m => m.val > totalCents && m.type === 'note'); 
+        if(allowed.length === 0) allowed = [sorted.find(m => m.type === 'note')]; 
+
+        allowed.forEach(m => notesArea.innerHTML += generateCompartment(m));
+        
+        setTimeout(() => {
+            document.getElementById('cash-drawer').classList.add('open');
+        }, 100);
+    }
+
+    function addMoney(cents) {
+        if(phase === 'choose_payment') { paidCents = cents; startChangePhase(); } 
+        else if (phase === 'give_change') {
+            currentInputCents += cents;
+            document.getElementById('current-money-sum').innerText = formatMoney(currentInputCents) + ' €';
+            document.getElementById('money-error').style.display = 'none';
+        }
+    }
+
+    function clearMoney() { currentInputCents = 0; document.getElementById('current-money-sum').innerText = '0.00 €'; }
+
+    function startChangePhase() {
+        playSound('snd-cash'); // Пускаме звука ВЕДНАГА при клик
+        
+        phase = 'give_change';
+        const drawer = document.getElementById('cash-drawer');
+        drawer.classList.remove('open'); 
+        
+        setTimeout(() => {
+            document.getElementById('reg-screen').innerHTML = `ПЛАТЕНО: <span style="color:#fff">${formatMoney(paidCents)} €</span> | СМЕТКА: <span style="color:#ff4757">${formatMoney(totalCents)} €</span>`;
+            document.getElementById('action-label').innerText = "Избери ресто от касата:";
+            
+            const nA = document.getElementById('notes-compartments'), cA = document.getElementById('coins-compartments');
+            nA.innerHTML = ''; cA.innerHTML = '';
+            
+            let sorted = [...myMoney].sort((a,b) => b.val - a.val);
+            sorted.forEach(m => { if(m.type === 'note') nA.innerHTML += generateCompartment(m); else cA.innerHTML += generateCompartment(m); });
+            clearMoney();
+            
+            drawer.classList.add('open');
+        }, 500);
+    }
+
+    function submitMoney() {
+        if (phase !== 'give_change') return;
+        const expectedChange = paidCents - totalCents;
+        const errDiv = document.getElementById('money-error');
+
+        if (currentInputCents === expectedChange) {
+            document.getElementById('money-content').style.display = 'none';
+            document.getElementById('success-screen').style.display = 'block';
+            
+            // Тук се появяват двата финални бутона
+            document.getElementById('success-screen').innerHTML = `
+                <h1 style="color:#2e7d32; font-size:60px; margin-bottom:10px;">БРАВО! 🎉</h1>
+                <h2 style="color:#333;">Касата е засечена успешно.</h2>
+                <p style="font-size:32px;">Ресто: <b>${formatMoney(expectedChange)} €</b></p>
+                <div style="display:flex; gap: 20px; justify-content: center; margin-top: 40px;">
+                    <button class="btn-main" style="background:#0277bd; color:white;" onclick="setupStore()">🛒 СЛЕДВАЩ КЛИЕНТ</button>
+                    <button class="btn-main" style="background:#c62828; color:white;" onclick="location.reload()">🚪 СМЯНА НА КАСИЕРА</button>
+                </div>
+            `;
+        } else {
+            errDiv.innerText = `Грешно ресто! Трябва да върнеш ${formatMoney(expectedChange)} €`;
+            errDiv.style.display = 'block'; clearMoney();
+        }
+    }
+</script>
+
+</body>
+</html>
